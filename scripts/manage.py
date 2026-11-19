@@ -110,16 +110,29 @@ def mongodb(values):
             log.close()
 
 
+def loader_command(reset_data=False):
+    command = [sys.executable, '-u', 'load_data.py', '--zip', 'data/ml-25m.zip']
+    if reset_data:
+        command.append('--reset')
+    return command
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['setup','run'])
+    parser.add_argument('--reset-data', action='store_true',
+                        help='setup only: replace dataset collections, app ratings and rating history; preserve accounts')
     args = parser.parse_args()
+    if args.reset_data and args.action != 'setup':
+        parser.error('--reset-data is only valid with setup')
+    if args.reset_data:
+        print('WARNING: replacing dataset collections, app ratings and rating history. Accounts are preserved.', flush=True)
     values = configuration()
     environment = dict(os.environ, **values)
     if args.action == 'setup':
         subprocess.run([sys.executable, 'scripts/bootstrap_runtime.py'], cwd=BASE, env=environment, check=True)
         with mongodb(values):
-            subprocess.run([sys.executable, '-u', 'load_data.py', '--zip', 'data/ml-25m.zip'], cwd=BASE, env=environment, check=True)
+            subprocess.run(loader_command(args.reset_data), cwd=BASE, env=environment, check=True)
         print('Setup complete. Run scripts/manage.py run to start the app.', flush=True)
         return
     with mongodb(values) as client:
