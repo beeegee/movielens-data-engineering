@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | MovieLens Analytics</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="auth-body">
+    <div class="auth-card">
+        <div class="auth-header">
+            <span class="auth-icon">🎬</span>
+            <h2>MovieLens Analytics</h2>
+            <p class="auth-sub">Data Engineering • IIT Palakkad</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash-alert {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('login') }}" class="auth-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label for="usernameInput">Username</label>
+                <input id="usernameInput" name="username" type="text" placeholder="Username" required autofocus>
+            </div>
+            <div class="form-group">
+                <label for="passwordInput">Password</label>
+                <input id="passwordInput" name="password" type="password" placeholder="••••••••" required>
+            </div>
+            <button type="submit" class="primary-btn auth-submit-btn">Sign in</button>
+        </form>
+
+        <p class="auth-footer-link">
+            Need an account? <a href="{{ url_for('register') }}">Create an account</a>
+        </p>
+    </div>
+</body>
+</html>

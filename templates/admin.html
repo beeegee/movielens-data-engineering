@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>Administrator dashboard | MovieLens Analytics</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="navbar">
+  <div class="nav-brand"><span class="brand-icon">🎬</span><div class="brand-text"><span class="brand-title">Administrator dashboard</span><span class="brand-subtitle">MovieLens Analytics</span></div></div>
+  <div class="nav-actions">
+    <a href="{{ url_for('dashboard') }}" class="nav-link">Movie analytics</a>
+    <div class="user-pill"><span class="role-chip admin">ADMIN</span><span class="username">{{ session.get('user') }}</span><a href="{{ url_for('logout') }}" class="logout-btn">Sign out</a></div>
+  </div>
+</header>
+<main class="dashboard-container">
+  <div class="stats-grid">
+    <div class="stat-card"><span class="stat-label">Movies</span><span class="stat-value" id="statMovies">Loading</span><span class="stat-sub">Stored movie records</span></div>
+    <div class="stat-card"><span class="stat-label">Original ratings</span><span class="stat-value" id="statBaseline">Loading</span><span class="stat-sub">All source rating rows retained</span></div>
+    <div class="stat-card"><span class="stat-label">Accounts</span><span class="stat-value" id="statUsers">Loading</span><span class="stat-sub">Users and administrators</span></div>
+    <div class="stat-card"><span class="stat-label">App ratings</span><span class="stat-value" id="statUserRatings">Loading</span><span class="stat-sub">Current ratings submitted through the app</span></div>
+  </div>
+  <section class="analytics-card" style="margin-top:24px">
+    <div class="card-header"><h3>User accounts</h3><p class="card-desc">View accounts and change another account's role.</p></div>
+    <div class="table-scroll-wrapper"><table class="data-table"><thead><tr><th>Username</th><th>Role</th><th>Created</th><th style="text-align:right">Action</th></tr></thead><tbody id="usersTableBody"></tbody></table></div>
+  </section>
+  <section class="analytics-card" style="margin-top:24px">
+    <div class="card-header"><h3>Recent ratings</h3><p class="card-desc" id="recentDescription">Recent movie ratings submitted through the app.</p></div>
+    <div class="table-scroll-wrapper"><table class="data-table"><thead><tr><th>Username</th><th>Movie ID</th><th>Rating</th><th style="text-align:right">Time</th></tr></thead><tbody id="auditTableBody"></tbody></table></div>
+  </section>
+  <p id="adminError" role="alert" class="status-msg"></p>
+</main>
+<footer class="footer"><div class="footer-content"><p>Data Engineering · IIT Palakkad</p></div></footer>
+<script>
+const currentUsername = {{ session.get('user')|tojson }};
+const csrfToken = document.querySelector('meta[name=csrf-token]').content;
+function cell(text, className='') {
+  const node = document.createElement('td');
+  node.textContent = text;
+  node.className = className;
+  return node;
+}
+async function api(url, options={}) {
+  const response = await fetch(url, options);
+  if (response.status === 401) { window.location.href = '/login'; throw new Error('Please sign in.'); }
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Request failed.');
+  return data;
+}
+async function loadAdminData() {
+  try {
+    const [stats, users] = await Promise.all([api('/api/admin/stats'), api('/api/admin/users')]);
+    for (const [id, key] of [['statMovies','totalMovies'],['statBaseline','baselineRatings'],['statUsers','totalUsers'],['statUserRatings','userRatingsCount']]) {
+      document.getElementById(id).textContent = Number(stats[key] ?? 0).toLocaleString();
+    }
+    const body = document.getElementById('usersTableBody');
+    body.replaceChildren();
+    for (const user of users) {
+      const row = document.createElement('tr');
+      row.append(cell(user.username));
+      const roleCell = document.createElement('td');
+      const role = document.createElement('span');
+      role.className = 'role-chip ' + (user.role === 'admin' ? 'admin' : 'user');
+      role.textContent = user.role.toUpperCase();
+      roleCell.append(role); row.append(roleCell);
+      row.append(cell(user.createdAt ? new Date(user.createdAt).toLocaleString('en-IN') : 'Initial account', 'text-muted'));
+      const action = document.createElement('td'); action.style.textAlign = 'right';
+      const button = document.createElement('button'); button.className = 'secondary-btn btn-sm';
+      button.disabled = user.username === currentUsername;
+      button.textContent = button.disabled ? 'Current account' : 'Make ' + (user.role === 'admin' ? 'user' : 'admin');
+      button.addEventListener('click', () => toggleRole(user.username));
+      action.append(button); row.append(action); body.append(row);
+    }
+    const audit = document.getElementById('auditTableBody'); audit.replaceChildren();
+    const ratings = stats.recentEvents || stats.latestRatings || [];
+    if (stats.recentEvents) document.getElementById('recentDescription').textContent = 'Saved history of new ratings and rating changes.';
+    for (const rating of ratings) {
+      const row = document.createElement('tr');
+      row.append(cell(rating.username), cell('#' + rating.movieId), cell(rating.rating + ' ★'), cell(new Date(rating.timestamp * 1000).toLocaleString()));
+      audit.append(row);
+    }
+    if (!ratings.length) { const row = document.createElement('tr'); const c = cell('No app ratings yet.'); c.colSpan = 4; row.append(c); audit.append(row); }
+  } catch (error) { document.getElementById('adminError').textContent = error.message; }
+}
+async function toggleRole(username) {
+  if (!confirm('Change the role for ' + username + '?')) return;
+  try {
+    await api('/api/admin/toggle_role', {method:'POST', headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken}, body:JSON.stringify({username})});
+    await loadAdminData();
+  } catch (error) { document.getElementById('adminError').textContent = error.message; }
+}
+loadAdminData();
+</script>
+</body>
+</html>

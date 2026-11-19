@@ -1,0 +1,21 @@
+.env
+.venv/
+venv/
+.runtime/
+data/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.zip
+.DS_Store
+
+# Local verification output and browser session artifacts
+verification/
+.coverage
+htmlcov/
+playwright-report/
+test-results/
+*.pem
+*.key
+.env.*
+!.env.example
