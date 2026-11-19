@@ -9,7 +9,7 @@ import math
 import re
 import secrets
 import stat
-import fcntl
+import sys
 from pathlib import Path
 from urllib.parse import urlsplit, unquote
 from flask.sessions import SecureCookieSessionInterface
@@ -43,6 +43,9 @@ class LocalSessionInterface(SecureCookieSessionInterface):
     """Create/load a private local key on first request, never at import."""
     def get_signing_serializer(self, application):
         if not application.secret_key:
+            if sys.platform == "win32":
+                raise RuntimeError("Missing SECRET_KEY. Run install.py to generate a private .env before starting the app.")
+            import fcntl  # POSIX-only fallback; normal setup supplies SECRET_KEY.
             path = Path(os.getenv("SESSION_SECRET_FILE", str(Path(__file__).parent / ".runtime" / "session.key")))
             path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)

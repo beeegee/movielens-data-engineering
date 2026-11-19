@@ -60,6 +60,9 @@ def fixture_archive(path, kind, entries):
         with zipfile.ZipFile(path, 'w') as bundle:
             for name, data, entry_kind in entries:
                 member = zipfile.ZipInfo(name)
+                # ZipInfo normalizes backslashes on Windows. Preserve the raw
+                # fixture name so malicious archives are tested consistently.
+                member.filename = name
                 member.create_system = 3
                 member.external_attr = ((stat.S_IFLNK if entry_kind == 'symlink' else stat.S_IFREG) | 0o755) << 16
                 bundle.writestr(member, data)

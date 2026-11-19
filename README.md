@@ -45,7 +45,7 @@ Press **Ctrl+C** to stop the app and its project-managed MongoDB process. An ext
 
 ## Retrying setup
 
-Rerun `install.py` to retry downloads or Python dependency installation. Completed imports, accounts and app ratings are preserved. Normal setup never resets data automatically.
+Stop the app with Ctrl+C before rerunning the installer, especially on Windows where running executables cannot be replaced. Rerun `install.py` to retry downloads or Python dependency installation. Completed imports, accounts and app ratings are preserved. Normal setup never resets data automatically.
 
 If setup reports **`Existing or incomplete dataset; explicit --reset required`**, the partial import cannot resume. Stop the app, then explicitly restart ingestion:
 

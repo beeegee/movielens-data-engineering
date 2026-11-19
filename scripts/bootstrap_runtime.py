@@ -119,7 +119,7 @@ def extract_mongo_archive(archive, destination, system=None):
                     kind = stat.S_IFMT(mode)
                     if kind not in (0, stat.S_IFREG, stat.S_IFDIR):
                         raise ValueError(f'Unsafe MongoDB ZIP entry: {member.filename}')
-                    copy_member(member.filename, member.is_dir(), mode,
+                    copy_member(member.orig_filename, member.is_dir(), mode,
                                 lambda m=member: bundle.open(m))
         else:
             with tarfile.open(archive, 'r:gz') as bundle:

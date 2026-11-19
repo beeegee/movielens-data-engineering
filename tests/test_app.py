@@ -265,3 +265,21 @@ def test_dashboard_api_shapes(backend):
     for path, key in [("/api/tags/top/1", "tags"), ("/api/ratings/distribution/1", "distribution"), ("/api/genres/releases?year=2001", "releases")]:
         response = client.get(path)
         assert response.status_code == 200 and isinstance(response.json[key], list)
+
+
+def test_missing_windows_secret_requests_setup_without_writing(monkeypatch, tmp_path):
+    monkeypatch.setenv("SECRET_KEY", "")
+    target = tmp_path / "should-not-exist.key"
+    monkeypatch.setenv("SESSION_SECRET_FILE", str(target))
+    spec = importlib.util.spec_from_file_location("movielens_windows_secret", Path(__file__).resolve().parents[1] / "app.py")
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    try:
+        with monkeypatch.context() as windows:
+            windows.setattr(module.sys, "platform", "win32")
+            with pytest.raises(RuntimeError, match="Run install.py"):
+                module.app.session_interface.get_signing_serializer(module.app)
+        assert not target.exists()
+    finally:
+        module.client.close()
