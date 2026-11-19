@@ -18,6 +18,9 @@ from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure, OperationFailure
 
 BASE = Path(__file__).resolve().parents[1]
+if str(BASE) not in sys.path:
+    sys.path.insert(0, str(BASE))
+from platform_support import mongo_executable
 RUNTIME = BASE / '.runtime'
 LOCAL_URI = 'mongodb://127.0.0.1:27118/?replicaSet=movielens-rs'
 
@@ -57,7 +60,7 @@ def mongodb(values):
         if not primary_ready(client):
             if uri != LOCAL_URI:
                 raise RuntimeError('Start the replica-set MongoDB configured in .env first.')
-            executable = RUNTIME / 'mongodb/bin/mongod'
+            executable = mongo_executable(BASE)
             if not executable.exists():
                 raise RuntimeError('MongoDB is missing. Run scripts/manage.py setup first.')
             (RUNTIME / 'db').mkdir(parents=True, exist_ok=True)
@@ -98,14 +101,23 @@ def mongodb(values):
         print('MongoDB replica-set primary ready.', flush=True)
         yield client
     finally:
-        client.close()
         if owned is not None and owned.poll() is None:
-            owned.terminate()
+            # The shutdown command flushes data on Windows too; terminate() is not
+            # a graceful signal on that platform. Never stop an external server.
+            try:
+                client.admin.command('shutdown', force=True, timeoutSecs=10)
+            except (ConnectionFailure, OperationFailure):
+                pass  # A successful shutdown normally disconnects this client.
             try:
                 owned.wait(timeout=20)
             except subprocess.TimeoutExpired:
-                owned.kill()
-                owned.wait()
+                owned.terminate()
+                try:
+                    owned.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    owned.kill()
+                    owned.wait()
+        client.close()
         if log is not None:
             log.close()
 

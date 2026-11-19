@@ -6,6 +6,8 @@ import platform
 import subprocess
 import sys
 
+from platform_support import environment_python as native_environment_python, runtime_target
+
 BASE = Path(__file__).resolve().parent
 
 
@@ -16,17 +18,12 @@ def run(command):
 def check_runtime():
     if sys.version_info < (3, 12):
         raise RuntimeError("Python 3.12 or newer is required. Python 3.12 is the tested version.")
-    if platform.system() != "Linux" or platform.machine() != "x86_64":
-        raise RuntimeError(
-            "Automatic MongoDB setup supports Linux x86_64 only. "
-            "On Windows, use an x86_64 Ubuntu environment in WSL2. "
-            "Native Windows, macOS and ARM are not supported by this installer."
-        )
+    runtime_target(platform.system(), platform.machine())
 
 
 def environment_python():
     environment = BASE / ".venv"
-    python = environment / "bin/python"
+    python = native_environment_python(BASE)
     if environment.exists():
         if not (environment / "pyvenv.cfg").is_file() or not python.is_file():
             raise RuntimeError(
@@ -77,14 +74,14 @@ def main(argv=None):
     print("Installing Python dependencies...", flush=True)
     run([python, "-m", "pip", "install", "-r", requirements])
     if args.dependencies_only:
-        print("Dependencies installed. Run python3 install.py to finish database setup.", flush=True)
+        print("Dependencies installed. Run install.py again without --dependencies-only to finish database setup.", flush=True)
         return
     command = [python, "scripts/manage.py", "setup"]
     if args.reset_data:
         command.append("--reset-data")
     run(command)
     print("\nReady. Start the dashboard with:", flush=True)
-    print("  .venv/bin/python scripts/manage.py run", flush=True)
+    print("  python run.py" if platform.system() == "Windows" else "  python3 run.py", flush=True)
     print("Open http://127.0.0.1:5008 and read the generated .env locally for login details.", flush=True)
 
 

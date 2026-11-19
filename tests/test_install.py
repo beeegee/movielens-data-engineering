@@ -22,12 +22,12 @@ def test_rejects_old_python_before_installing(installer, monkeypatch):
         installer.check_runtime()
 
 
-@pytest.mark.parametrize("system,machine", [("Windows", "AMD64"), ("Darwin", "arm64"), ("Linux", "aarch64")])
+@pytest.mark.parametrize("system,machine", [("Windows", "ARM64"), ("Darwin", "sparc"), ("Linux", "riscv64")])
 def test_rejects_unsupported_runtime(installer, monkeypatch, system, machine):
     monkeypatch.setattr(installer.sys, "version_info", (3, 12, 12))
     monkeypatch.setattr(installer.platform, "system", lambda: system)
     monkeypatch.setattr(installer.platform, "machine", lambda: machine)
-    with pytest.raises(RuntimeError, match="Linux x86_64"):
+    with pytest.raises(RuntimeError):
         installer.check_runtime()
 
 
@@ -78,9 +78,9 @@ def test_refuses_to_overwrite_non_environment_directory(installer, monkeypatch, 
 def test_existing_environment_is_reused_without_recreating(installer, monkeypatch, tmp_path):
     monkeypatch.setattr(installer, "BASE", tmp_path)
     environment = tmp_path / ".venv"
-    (environment / "bin").mkdir(parents=True)
+    python = installer.native_environment_python(tmp_path)
+    python.parent.mkdir(parents=True)
     (environment / "pyvenv.cfg").write_text("version = 3.12.12\n")
-    python = environment / "bin/python"
     python.touch()
     calls = []
     monkeypatch.setattr(installer, "run", lambda command: calls.append([str(part) for part in command]))
@@ -134,3 +134,53 @@ def test_run_rejects_reset_before_creating_credentials(manager, monkeypatch, tmp
         manager.main()
     assert error.value.code == 2
     assert not (tmp_path / ".env").exists()
+
+
+@pytest.fixture
+def launcher():
+    path = Path(__file__).resolve().parents[1] / "run.py"
+    spec = importlib.util.spec_from_file_location("movielens_native_launcher", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_launcher_requires_environment_without_starting_process(launcher, monkeypatch, tmp_path):
+    monkeypatch.setattr(launcher, "environment_python", lambda base: tmp_path / "missing-python")
+    assert launcher.main() == 1
+
+
+def test_launcher_uses_native_python_and_preserves_child_exit(launcher, monkeypatch, tmp_path):
+    python = tmp_path / "python.exe"
+    python.touch()
+    monkeypatch.setattr(launcher, "environment_python", lambda base: python)
+    calls = []
+    class Process:
+        def wait(self):
+            return 7
+    def spawn(command, **kwargs):
+        calls.append((command, kwargs))
+        return Process()
+    monkeypatch.setattr(launcher.subprocess, "Popen", spawn)
+    assert launcher.main() == 7
+    assert calls[0][0] == [str(python), "scripts/manage.py", "run"]
+    assert calls[0][1]['cwd'] == launcher.BASE
+
+
+def test_launcher_allows_child_to_clean_up_after_ctrl_c(launcher, monkeypatch, tmp_path):
+    python = tmp_path / "python"
+    python.touch()
+    monkeypatch.setattr(launcher, "environment_python", lambda base: python)
+    waits = []
+    class Process:
+        def wait(self, timeout=None):
+            waits.append(timeout)
+            if timeout is None:
+                raise KeyboardInterrupt
+            return 0
+        def terminate(self):
+            pytest.fail("should allow the child to shut down gracefully")
+    monkeypatch.setattr(launcher.subprocess, "Popen", lambda *args, **kwargs: Process())
+    assert launcher.main() == 0
+    assert waits == [None, 35]

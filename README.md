@@ -2,105 +2,95 @@
 
 Data Engineering, IIT Palakkad. A Flask, MongoDB and Chart.js dashboard for the complete MovieLens 25M dataset, with regular-user and administrator accounts.
 
-## Before you start
+## Requirements
 
-- **Python 3.12 or newer**, with `venv` and pip support. Python 3.12 is the tested version.
-- **Linux x86_64**, or an x86_64 Linux environment in **WSL2 on Windows**. The automatic MongoDB installer does not support native Windows, macOS or ARM.
-- An internet connection and several GB of free disk space. First setup downloads the full dataset and imports all 25 million ratings, so it takes time. It is not a tiny sample dataset.
-- Git is optional. You can also use **Code → Download ZIP** on GitHub and extract it.
+- **Python 3.12 or newer.** Python 3.12 is the tested version. Install it from [python.org](https://www.python.org/downloads/) if needed. On Windows, enable **Add Python to PATH** in the Python installer.
+- **Linux**, **Windows**, or **macOS** with an officially supported MongoDB 8.0 runtime:
+  - Linux x86_64, with the shared libraries required by the Ubuntu 22.04 MongoDB build. Ubuntu 22.04/24.04 are suitable targets.
+  - Windows 11 or Windows Server 2022 or newer, x64.
+  - macOS 15 or newer, both Intel and Apple Silicon.
+- Internet access and several GB of free disk space. First setup imports the full **25 million ratings**, not a tiny sample, and takes time.
 
-You do **not** need uv, Docker, Node.js or a preinstalled MongoDB server. Python dependencies and the MongoDB runtime stay inside this project. The setup script does not install system packages.
+You do **not** need uv, Docker, WSL, Homebrew, Node.js or a preinstalled MongoDB server. The installer chooses the native MongoDB download for your machine, checks the publisher's SHA-256, and keeps the runtime and Python dependencies in this folder.
 
-On Ubuntu 24.04, including Ubuntu 24.04 inside WSL2, install the Python prerequisites if missing:
+## Install and run
 
-```sh
-sudo apt update
-sudo apt install python3 python3-venv
-```
+Download this repository with **Code → Download ZIP** and extract it, or clone it with Git. Open a terminal in the extracted project folder.
 
-## Install
-
-Clone this repository, or extract the downloaded ZIP. Open a terminal in the project folder:
+### macOS or Linux
 
 ```sh
-git clone https://github.com/beeegee/movielens-data-engineering.git
-cd movielens-data-engineering
 python3 install.py
+python3 run.py
 ```
 
-If you downloaded a ZIP, skip the `git clone` command and open its extracted folder instead.
+### Windows
 
-The installer creates `.venv`, installs the pinned dependencies with standard pip, generates a private `.env`, downloads and verifies MongoDB and MovieLens, and imports the complete dataset into a local single-node replica set. Let it finish before starting the app. No shell activation is needed.
+Open PowerShell or Command Prompt in the project folder:
 
-**To retry downloads or dependency installation, run `python3 install.py` again.** Completed imports, accounts and app ratings are preserved. A partially imported database needs the explicit recovery procedure below. Normal setup never resets your data automatically.
-
-## Run
-
-```sh
-.venv/bin/python scripts/manage.py run
+```powershell
+python install.py
+python run.py
 ```
 
-Open **http://127.0.0.1:5008**. Open the generated `.env` locally for `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `USER_USERNAME` and `USER_PASSWORD`. These are generated credentials, not passwords published in this repository. Do not share `.env` or show it in screenshots.
+Then open **http://127.0.0.1:5008**.
+
+The installer creates `.venv`, installs the pinned Python dependencies with pip, generates a private `.env`, downloads MongoDB and MovieLens, and imports the complete dataset into a local single-node replica set. No virtual-environment activation or manual database commands are needed. `run.py` handles the Windows/Unix executable-path difference.
+
+Open the generated `.env` locally for `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `USER_USERNAME` and `USER_PASSWORD`. These credentials are generated, not published here. Do not share `.env` or show it in screenshots.
 
 Regular users can explore movies and rate them. Administrators can open `/admin` to inspect accounts, change another account's role and view rating history.
 
-Press **Ctrl+C** to stop the app and any MongoDB process started by this command. A MongoDB instance that was already running is not stopped. This is a local course demonstration, not a production deployment. Keep it bound to localhost.
+Press **Ctrl+C** to stop the app and its project-managed MongoDB process. An externally started MongoDB instance is not stopped. This is a local course demonstration, not a production deployment. Keep it bound to localhost.
 
-## Manual installation
+## Retrying setup
 
-If you prefer to run the individual steps, use ordinary Python and pip:
+Rerun `install.py` to retry downloads or Python dependency installation. Completed imports, accounts and app ratings are preserved. Normal setup never resets data automatically.
 
-```sh
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
-.venv/bin/python scripts/manage.py setup
-.venv/bin/python scripts/manage.py run
-```
-
-Use either this route or `install.py`, not both. No `uv` commands are needed.
-
-## Recovering an interrupted import
-
-If setup reports **`Existing or incomplete dataset; explicit --reset required`**, ordinary reruns cannot resume that partial database import. Stop the app first, then explicitly restart ingestion:
+If setup reports **`Existing or incomplete dataset; explicit --reset required`**, the partial import cannot resume. Stop the app, then explicitly restart ingestion:
 
 ```sh
 python3 install.py --reset-data
 ```
 
-**This replaces dataset collections and removes current app ratings and rating history. User accounts are preserved.** It reuses completed downloads and starts the import again from the beginning. Use it only when you accept that data loss. Normal installation never enables this option automatically.
+On Windows, use `python install.py --reset-data`.
+
+**This replaces dataset collections and removes current app ratings and rating history. User accounts are preserved.** Completed downloads are reused, but ingestion starts again from the beginning. Use this option only when you accept that data loss.
 
 ## Troubleshooting
 
-- **`python3` is missing or too old:** install Python 3.12 with its matching `venv` package. Reopen your terminal and check `python3 --version`.
-- **`ensurepip` or `venv` is missing:** on Ubuntu, install `python3-venv` for the interpreter you are using, then rerun the installer.
-- **Unsupported operating system or architecture:** automatic runtime setup is Linux x86_64 only. On an x86_64 Windows machine, run the commands inside an Ubuntu WSL2 terminal, not PowerShell. Native macOS and ARM are not supported by the automatic installer.
-- **A download or dependency installation fails:** check your connection, free disk space and the printed error, then rerun the same command. No global pip installation or `sudo pip` is required.
-- **MongoDB cannot start:** read `.runtime/mongod.log` and `.runtime/mongodb-startup.log`. The downloaded build targets Ubuntu 22.04 x86_64; another Linux distribution must provide its required shared libraries.
-- **A local port is already in use:** the default ports are 5008 for Flask and 27118 for MongoDB. Flask's port can be changed in `.env`. A custom MongoDB URI must point to an already-running replica set.
+- **Python is missing or too old:** install Python 3.12 and reopen your terminal. Check `python3 --version` on macOS/Linux or `python --version` on Windows.
+- **Ubuntu reports missing `venv` or `ensurepip`:** install the matching `python3-venv` package. For Ubuntu 24.04: `sudo apt install python3 python3-venv`.
+- **A download fails:** check your connection and free disk space, then rerun the same installer command.
+- **MongoDB cannot start:** check `.runtime/mongod.log` and `.runtime/mongodb-startup.log`. The installer downloads the official OS-specific MongoDB build, so your OS and CPU must meet that build's requirements. On Linux, missing shared-library errors require the corresponding OS packages. On Windows, missing `VCRUNTIME`/`MSVCP` DLL errors require Microsoft's Visual C++ x64 Redistributable.
+- **The default port is already in use:** Flask uses 5008 and MongoDB uses 27118. Change Flask's `PORT` in `.env` if needed. A custom `MONGO_URI` must point to an already-running replica set.
+- **ARM Windows or another unsupported CPU/OS:** no native runtime is provided for that combination. The installer reports it before installing dependencies rather than silently downloading the wrong binary.
 
 ## Tests and optional browser checks
 
-Install development dependencies without downloading data or starting MongoDB:
+Install development dependencies without downloading the dataset or starting MongoDB:
 
 ```sh
 python3 install.py --dev --dependencies-only
 ```
 
-This does not generate credentials or import data. To finish the normal setup later, run `python3 install.py`.
+On Windows, use `python` instead of `python3`. For commands below, use `.venv/Scripts/python.exe` instead of `.venv/bin/python` on Windows.
 
-Installer safety checks and the database-free application smoke test:
-
-```sh
-.venv/bin/python -m pytest -q tests/test_install.py tests/test_app.py::test_import_and_anonymous_guards_without_database
-```
-
-For the full database-backed suite, finish setup and keep the app running in another terminal:
+Database-free safety checks:
 
 ```sh
-env MONGO_URI='mongodb://127.0.0.1:27118/?replicaSet=movielens-rs' TEST_MONGO_URI='mongodb://127.0.0.1:27118/?replicaSet=movielens-rs' .venv/bin/python -m pytest -q tests
+.venv/bin/python -m pytest -q tests/test_install.py tests/test_runtime.py tests/test_app.py::test_import_and_anonymous_guards_without_database
 ```
 
-The original application suite was verified with 51 passing tests, including real MongoDB integration. Installer tests are additional. Integration tests create and remove isolated `movielens_test_*` or `movielens_loader_test_*` databases. Tiny loader fixtures are explicitly synthetic and are not used for dashboard screenshots.
+For the full database-backed suite, finish setup and keep the app running in another terminal. Set `MONGO_URI` and `TEST_MONGO_URI` to `mongodb://127.0.0.1:27118/?replicaSet=movielens-rs`, then run:
+
+```sh
+.venv/bin/python -m pytest -q tests
+```
+
+Integration tests create and remove isolated `movielens_test_*` or `movielens_loader_test_*` databases. Tiny loader fixtures are explicitly synthetic and are not used for the README screenshots.
+
+The GitHub Actions workflow checks native MongoDB startup, real database-backed tests, an HTTP login-page smoke test, repeat installation and clean shutdown on Linux, Windows, macOS Intel and macOS Apple Silicon. These tests use isolated fixtures, not a repeat of the full 25M import on every runner.
 
 Read-only full-dataset verification, while MongoDB is running:
 
@@ -147,6 +137,8 @@ Dataset totals, account roles and rating history. The screenshot shows local dem
 - `app.py`: login, permissions, analytics APIs and rating transactions.
 - `templates/`, `static/`: user/admin views and charts.
 - `install.py`: standard-library installer, no uv or environment activation required.
+- `run.py`: starts the app using the correct virtual-environment path on your OS.
+- `platform_support.py`: native runtime and executable-path selection.
 - `scripts/manage.py`: local setup, startup and shutdown.
 - `tests/`: regression tests and labelled synthetic loader fixtures.
 - `docs/screenshots/`: user and administrator dashboard screenshots.

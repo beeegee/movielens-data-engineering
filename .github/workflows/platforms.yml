@@ -1,0 +1,55 @@
+name: Native platform checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x64
+            os: ubuntu-24.04
+            architecture: x64
+            python: .venv/bin/python
+          - name: Windows x64
+            os: windows-2025
+            architecture: x64
+            python: .venv/Scripts/python.exe
+          - name: macOS Apple Silicon
+            os: macos-15
+            architecture: arm64
+            python: .venv/bin/python
+          - name: macOS Intel
+            os: macos-15-intel
+            architecture: x64
+            python: .venv/bin/python
+    defaults:
+      run:
+        shell: bash
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: '3.12'
+          architecture: ${{ matrix.architecture }}
+      - name: Install with standard Python and pip
+        run: python install.py --dev --dependencies-only
+      - name: Download and verify the native MongoDB runtime
+        run: '"${{ matrix.python }}" -c "from scripts.bootstrap_runtime import mongo; mongo()"'
+      - name: Check native MongoDB, integration tests and real HTTP startup
+        run: '"${{ matrix.python }}" scripts/platform_smoke.py'
+      - name: Check repeat installation and dependencies
+        run: |
+          python install.py --dependencies-only
+          "${{ matrix.python }}" -m pip check
